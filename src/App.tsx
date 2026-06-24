@@ -6,8 +6,16 @@ import { RoomAssignmentView } from "./components/RoomAssignmentView";
 import { SummaryView } from "./components/SummaryView";
 import { CalendarDays, Layers, TrendingUp, Building, RotateCcw } from "lucide-react";
 
+const getTodayStr = () => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 export default function App() {
-  const [selectedDate, setSelectedDate] = useState<string>("2026-06-13");
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
   const [staff, setStaff] = useState<Staff[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -67,15 +75,15 @@ export default function App() {
     localStorage.setItem("clean_system_assignments", JSON.stringify(updated));
   };
 
-  const resetToDemoData = () => {
-    if (window.confirm("全ての登録変更をリセットし、初期デモデータを復元しますか？")) {
+  const resetAllData = () => {
+    if (window.confirm("スタッフ・シフト・部屋割当のすべてのデータを削除して、空の状態に戻しますか？この操作は取り消せません。")) {
       const seed = getInitialData();
       saveStaff(seed.staff);
       saveRooms(seed.rooms);
       saveShifts(seed.shifts);
       saveAssignments(seed.assignments);
-      setSelectedDate("2026-06-13");
-      showToast("初期デモデータを復元しました。");
+      setSelectedDate(getTodayStr());
+      showToast("データをすべてリセットしました。");
     }
   };
 
@@ -160,6 +168,12 @@ export default function App() {
     saveRooms(rooms.map((r) => (r.number === roomNumber ? { ...r, defaultPrice: price } : r)));
   };
 
+  const handleBulkUpdatePrice = (date: string, price: number) => {
+    saveRooms(rooms.map((r) => ({ ...r, defaultPrice: price })));
+    saveAssignments(assignments.map((a) => (a.date === date ? { ...a, appliedPrice: price } : a)));
+    showToast(`単価を ¥${price.toLocaleString()} に一括設定しました。`);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 font-sans flex flex-col" id="app-root-workflow">
       {/* ヘッダー */}
@@ -239,6 +253,7 @@ export default function App() {
             onAssignRoom={handleAssignRoom}
             onRemoveAssignment={handleRemoveAssignment}
             onUpdateRoomPrice={handleUpdateRoomPrice}
+            onBulkUpdatePrice={handleBulkUpdatePrice}
             onUpdateAssignments={saveAssignments}
           />
         )}
@@ -253,11 +268,11 @@ export default function App() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p>© 2026 ホテル清掃シフト管理システム</p>
           <button
-            onClick={resetToDemoData}
+            onClick={resetAllData}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 hover:text-slate-800 text-slate-400 font-bold rounded-lg text-[11px] cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            初期デモデータを復元する
+            全データをリセットする
           </button>
         </div>
       </footer>

@@ -14,6 +14,7 @@ interface RoomAssignmentViewProps {
   onAssignRoom: (date: string, roomNumber: string, staffId: string) => void;
   onRemoveAssignment: (date: string, roomNumber: string) => void;
   onUpdateRoomPrice: (roomNumber: string, price: number) => void;
+  onBulkUpdatePrice: (date: string, price: number) => void;
   onUpdateAssignments: (assignments: Assignment[]) => void;
 }
 
@@ -27,10 +28,12 @@ export const RoomAssignmentView: React.FC<RoomAssignmentViewProps> = ({
   onAssignRoom,
   onRemoveAssignment,
   onUpdateRoomPrice,
+  onBulkUpdatePrice,
   onUpdateAssignments,
 }) => {
   const [monthDate, setMonthDate] = useState<string>(selectedDate);
   const [popupDate, setPopupDate] = useState<string | null>(null);
+  const [bulkPriceInput, setBulkPriceInput] = useState("");
 
   const formatYen = (num: number) => `¥${num.toLocaleString("ja-JP")}`;
 
@@ -55,6 +58,13 @@ export const RoomAssignmentView: React.FC<RoomAssignmentViewProps> = ({
     const num = parseInt(priceStr.replace(/[^0-9]/g, ""), 10);
     if (isNaN(num)) return;
     onUpdateRoomPrice(roomNo, num);
+  };
+
+  const handleBulkPriceApply = (date: string) => {
+    const num = parseInt(bulkPriceInput.replace(/[^0-9]/g, ""), 10);
+    if (isNaN(num)) return;
+    onBulkUpdatePrice(date, num);
+    setBulkPriceInput("");
   };
 
   const handleAutoAssign = (date: string, onDutyStaff: Staff[]) => {
@@ -139,6 +149,27 @@ export const RoomAssignmentView: React.FC<RoomAssignmentViewProps> = ({
                 </button>
               </div>
             )}
+
+            <div className="flex flex-wrap items-center gap-2 bg-indigo-50 rounded-2xl p-4">
+              <span className="text-xs font-bold text-indigo-900 whitespace-nowrap">この日の単価を一括設定:</span>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-slate-500">¥</span>
+                <input
+                  type="text"
+                  value={bulkPriceInput}
+                  onChange={(e) => setBulkPriceInput(e.target.value)}
+                  placeholder="例: 1300"
+                  className="w-24 bg-white border border-indigo-200 rounded-lg px-2 py-1.5 text-sm font-semibold focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <button
+                onClick={() => handleBulkPriceApply(popupDate)}
+                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs cursor-pointer whitespace-nowrap"
+              >
+                全12部屋に適用
+              </button>
+              <span className="text-[11px] text-indigo-500">※ 今後の基準単価としても保存されます</span>
+            </div>
 
             <div className="space-y-5">
               {floors.map((floor) => (
