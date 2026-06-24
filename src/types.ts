@@ -2,8 +2,6 @@ export interface Staff {
   id: string;
   name: string;
   phone: string;
-  weeklyDesire?: boolean[]; // [Sun, Mon, Tue, Wed, Thu, Fri, Sat] (true if wants to work)
-  specificOffs?: string[];  // List of YYYY-MM-DD dates requested off
 }
 
 export interface Room {
