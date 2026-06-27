@@ -4,15 +4,24 @@ import { getInitialData } from "./data";
 import { ShiftView } from "./components/ShiftView";
 import { RoomAssignmentView } from "./components/RoomAssignmentView";
 import { SummaryView } from "./components/SummaryView";
-import { CalendarDays, Layers, TrendingUp, Building, RotateCcw } from "lucide-react";
+import { CalendarDays, Layers, TrendingUp } from "lucide-react";
 
 const getTodayStr = () => {
   const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 };
+
+const getOneYearAgoCutoff = () => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
+const TABS = [
+  { id: "shift" as const, label: "シフト作成", icon: CalendarDays },
+  { id: "assign" as const, label: "部屋割当", icon: Layers },
+  { id: "summary" as const, label: "集計", icon: TrendingUp },
+];
 
 export default function App() {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
@@ -20,39 +29,58 @@ export default function App() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-
   const [activeTab, setActiveTab] = useState<"shift" | "assign" | "summary">("shift");
-
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2800);
   };
 
-  // Load state on mount
   useEffect(() => {
     const localStaff = localStorage.getItem("clean_system_staff");
     const localRooms = localStorage.getItem("clean_system_rooms");
     const localShifts = localStorage.getItem("clean_system_shifts");
     const localAssignments = localStorage.getItem("clean_system_assignments");
 
+    let loadedStaff: Staff[];
+    let loadedRooms: Room[];
+    let loadedShifts: Shift[];
+    let loadedAssignments: Assignment[];
+
     if (localStaff && localRooms && localShifts && localAssignments) {
-      setStaff(JSON.parse(localStaff));
-      setRooms(JSON.parse(localRooms));
-      setShifts(JSON.parse(localShifts));
-      setAssignments(JSON.parse(localAssignments));
+      loadedStaff = JSON.parse(localStaff);
+      loadedRooms = JSON.parse(localRooms);
+      loadedShifts = JSON.parse(localShifts);
+      loadedAssignments = JSON.parse(localAssignments);
     } else {
       const seed = getInitialData();
-      setStaff(seed.staff);
-      setRooms(seed.rooms);
-      setShifts(seed.shifts);
-      setAssignments(seed.assignments);
-
-      localStorage.setItem("clean_system_staff", JSON.stringify(seed.staff));
-      localStorage.setItem("clean_system_rooms", JSON.stringify(seed.rooms));
-      localStorage.setItem("clean_system_shifts", JSON.stringify(seed.shifts));
-      localStorage.setItem("clean_system_assignments", JSON.stringify(seed.assignments));
+      loadedStaff = seed.staff;
+      loadedRooms = seed.rooms;
+      loadedShifts = seed.shifts;
+      loadedAssignments = seed.assignments;
+      localStorage.setItem("clean_system_staff", JSON.stringify(loadedStaff));
+      localStorage.setItem("clean_system_rooms", JSON.stringify(loadedRooms));
+      localStorage.setItem("clean_system_shifts", JSON.stringify(loadedShifts));
+      localStorage.setItem("clean_system_assignments", JSON.stringify(loadedAssignments));
     }
+
+    // 1年以上前のシフト・割当を自動削除
+    const cutoff = getOneYearAgoCutoff();
+    const prunedShifts = loadedShifts.filter((s) => s.date >= cutoff);
+    const prunedAssignments = loadedAssignments.filter((a) => a.date >= cutoff);
+
+    if (prunedShifts.length !== loadedShifts.length) {
+      localStorage.setItem("clean_system_shifts", JSON.stringify(prunedShifts));
+    }
+    if (prunedAssignments.length !== loadedAssignments.length) {
+      localStorage.setItem("clean_system_assignments", JSON.stringify(prunedAssignments));
+    }
+
+    setStaff(loadedStaff);
+    setRooms(loadedRooms);
+    setShifts(prunedShifts);
+    setAssignments(prunedAssignments);
   }, []);
 
   const saveStaff = (updated: Staff[]) => {
@@ -75,93 +103,71 @@ export default function App() {
     localStorage.setItem("clean_system_assignments", JSON.stringify(updated));
   };
 
-  const resetAllData = () => {
-    if (window.confirm("スタッフ・シフト・部屋割当のすべてのデータを削除して、空の状態に戻しますか？この操作は取り消せません。")) {
-      const seed = getInitialData();
-      saveStaff(seed.staff);
-      saveRooms(seed.rooms);
-      saveShifts(seed.shifts);
-      saveAssignments(seed.assignments);
-      setSelectedDate(getTodayStr());
-      showToast("データをすべてリセットしました。");
-    }
-  };
-
   const handleToggleShift = (date: string, staffId: string) => {
-    let updatedShifts = [...shifts];
-    const shiftIndex = updatedShifts.findIndex((s) => s.date === date);
+    const updatedShifts = [...shifts];
+    const idx = updatedShifts.findIndex((s) => s.date === date);
 
-    if (shiftIndex >= 0) {
-      const shiftObj = updatedShifts[shiftIndex];
-      let updatedStaffIds = [...shiftObj.staffIds];
+    if (idx >= 0) {
+      const shiftObj = updatedShifts[idx];
+      let ids = [...shiftObj.staffIds];
 
-      if (updatedStaffIds.includes(staffId)) {
-        const hasActiveAssignments = assignments.some((a) => a.date === date && a.staffId === staffId);
-        if (hasActiveAssignments) {
-          const cleanedAssignments = assignments.filter((a) => !(a.date === date && a.staffId === staffId));
-          saveAssignments(cleanedAssignments);
-        }
-        updatedStaffIds = updatedStaffIds.filter((id) => id !== staffId);
+      if (ids.includes(staffId)) {
+        // シフト解除時、その日のその人の割当も削除
+        const cleaned = assignments.filter((a) => !(a.date === date && a.staffId === staffId));
+        if (cleaned.length !== assignments.length) saveAssignments(cleaned);
+        ids = ids.filter((id) => id !== staffId);
       } else {
-        updatedStaffIds.push(staffId);
+        ids.push(staffId);
       }
-
-      updatedShifts[shiftIndex] = { ...shiftObj, staffIds: updatedStaffIds };
+      updatedShifts[idx] = { ...shiftObj, staffIds: ids };
     } else {
       updatedShifts.push({ date, staffIds: [staffId] });
     }
 
     saveShifts(updatedShifts);
-    showToast("出勤（シフト）設定を保存しました。");
+    showToast("シフトを保存しました。");
   };
 
   const handleAssignRoom = (date: string, roomNo: string, staffId: string) => {
     const roomObj = rooms.find((r) => r.number === roomNo);
     const appliedPrice = roomObj ? roomObj.defaultPrice : 1200;
+    const updated = [...assignments];
+    const existingIdx = updated.findIndex((a) => a.date === date && a.roomNumber === roomNo);
 
-    let updatedAssignments = [...assignments];
-    const existingIndex = updatedAssignments.findIndex((a) => a.date === date && a.roomNumber === roomNo);
-
-    if (existingIndex >= 0) {
-      updatedAssignments[existingIndex] = { ...updatedAssignments[existingIndex], staffId, appliedPrice };
+    if (existingIdx >= 0) {
+      updated[existingIdx] = { ...updated[existingIdx], staffId, appliedPrice };
     } else {
-      updatedAssignments.push({
-        id: `A-${date}-${roomNo}-${Date.now()}`,
-        date,
-        roomNumber: roomNo,
-        staffId,
-        appliedPrice,
-      });
+      updated.push({ id: `A-${date}-${roomNo}-${Date.now()}`, date, roomNumber: roomNo, staffId, appliedPrice });
     }
 
-    saveAssignments(updatedAssignments);
-    const cleanerName = staff.find((s) => s.id === staffId)?.name || "スタッフ";
-    showToast(`${roomNo}号室に ${cleanerName} 様を割り当てました（単価 ${appliedPrice.toLocaleString()}円 適用）`);
+    saveAssignments(updated);
+    const name = staff.find((s) => s.id === staffId)?.name ?? "スタッフ";
+    showToast(`${roomNo}号室に ${name} 様を割り当てました（¥${appliedPrice.toLocaleString()}）`);
   };
 
   const handleRemoveAssignment = (date: string, roomNo: string) => {
-    const updated = assignments.filter((a) => !(a.date === date && a.roomNumber === roomNo));
-    saveAssignments(updated);
-    showToast(`${roomNo}号室の清掃割り当てを解除しました。`);
+    saveAssignments(assignments.filter((a) => !(a.date === date && a.roomNumber === roomNo)));
+    showToast(`${roomNo}号室の割り当てを解除しました。`);
   };
 
   const handleAddStaff = (name: string, phone: string) => {
-    const nextNum = staff.length > 0 ? Math.max(...staff.map((s) => parseInt(s.id.substring(1) || "0", 10))) + 1 : 1;
-    const nextId = `S${String(nextNum).padStart(2, "0")}`;
+    const maxNum = staff.length > 0
+      ? Math.max(...staff.map((s) => parseInt(s.id.replace(/\D/g, "") || "0", 10)))
+      : 0;
+    const nextId = `S${String(maxNum + 1).padStart(2, "0")}`;
     saveStaff([...staff, { id: nextId, name, phone }]);
-    showToast(`清掃員「${name}」様を新しく登録しました。`);
+    showToast(`「${name}」様を登録しました。`);
   };
 
   const handleUpdateStaff = (id: string, name: string, phone: string) => {
-    const updated = staff.map((s) => (s.id === id ? { ...s, name, phone } : s));
-    saveStaff(updated);
-    showToast(`スタッフ「${name}」様の情報を更新しました。`);
+    saveStaff(staff.map((s) => (s.id === id ? { ...s, name, phone } : s)));
+    showToast(`「${name}」様の情報を更新しました。`);
   };
 
   const handleDeleteStaff = (id: string) => {
     saveStaff(staff.filter((s) => s.id !== id));
     saveShifts(shifts.map((s) => ({ ...s, staffIds: s.staffIds.filter((sid) => sid !== id) })));
-    showToast("スタッフ情報を削除しました。");
+    showToast("スタッフを削除しました。");
   };
 
   const handleUpdateRoomPrice = (roomNumber: string, price: number) => {
@@ -175,46 +181,29 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950 font-sans flex flex-col" id="app-root-workflow">
+    <div className="min-h-screen bg-gray-50 text-slate-900 font-sans flex flex-col">
       {/* ヘッダー */}
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shrink-0">
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
-                <Building className="w-5 h-5" />
-              </div>
-              <span className="text-base font-bold text-slate-800">ホテル清掃シフト管理</span>
-            </div>
-
-            <nav className="flex items-center gap-2">
-              <button
-                onClick={() => setActiveTab("shift")}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-lg cursor-pointer ${
-                  activeTab === "shift" ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100"
-                }`}
-              >
-                <CalendarDays className="w-4 h-4" />
-                シフト作成
-              </button>
-              <button
-                onClick={() => setActiveTab("assign")}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-lg cursor-pointer ${
-                  activeTab === "assign" ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100"
-                }`}
-              >
-                <Layers className="w-4 h-4" />
-                部屋割当
-              </button>
-              <button
-                onClick={() => setActiveTab("summary")}
-                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-lg cursor-pointer ${
-                  activeTab === "summary" ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100"
-                }`}
-              >
-                <TrendingUp className="w-4 h-4" />
-                集計
-              </button>
+          <div className="flex items-center justify-between h-14">
+            <span className="text-base font-bold tracking-tight text-slate-800">
+              <span className="text-indigo-600">清掃</span>シフト管理
+            </span>
+            <nav className="flex items-center gap-1">
+              {TABS.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-semibold rounded-lg transition-colors cursor-pointer ${
+                    activeTab === id
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{label}</span>
+                </button>
+              ))}
             </nav>
           </div>
         </div>
@@ -222,13 +211,6 @@ export default function App() {
 
       {/* メインコンテンツ */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {toastMessage && (
-          <div className="fixed bottom-6 right-6 z-55 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2.5 max-w-md text-sm font-semibold">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>{toastMessage}</span>
-          </div>
-        )}
-
         {activeTab === "shift" && (
           <ShiftView
             selectedDate={selectedDate}
@@ -241,7 +223,6 @@ export default function App() {
             onDeleteStaff={handleDeleteStaff}
           />
         )}
-
         {activeTab === "assign" && (
           <RoomAssignmentView
             selectedDate={selectedDate}
@@ -257,24 +238,22 @@ export default function App() {
             onUpdateAssignments={saveAssignments}
           />
         )}
-
         {activeTab === "summary" && (
           <SummaryView selectedDate={selectedDate} staff={staff} assignments={assignments} />
         )}
       </main>
 
-      {/* フッター */}
-      <footer className="bg-white border-t border-slate-100 py-5 mt-12 text-center text-xs text-slate-400">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>© 2026 ホテル清掃シフト管理システム</p>
-          <button
-            onClick={resetAllData}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 hover:text-slate-800 text-slate-400 font-bold rounded-lg text-[11px] cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            全データをリセットする
-          </button>
+      {/* トースト通知 */}
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-2.5 text-sm font-semibold pointer-events-none whitespace-nowrap">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+          {toastMessage}
         </div>
+      )}
+
+      {/* フッター */}
+      <footer className="border-t border-gray-100 py-4 text-center text-xs text-slate-400">
+        © 2026 ホテル清掃シフト管理システム
       </footer>
     </div>
   );
