@@ -1,20 +1,36 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 🏨 ホテル清掃シフト・報酬集計 管理システム
 
-# Run and deploy your AI Studio app
+ホテルの清掃業務に特化した、シフト管理・部屋割当・報酬集計をワンストップで行えるWebアプリです。
 
-This contains everything you need to run your app locally.
+🖥️ **[デモを見る](https://tatagen.github.io/hotel-cleaning-shift/)**
 
-View your app in AI Studio: https://ai.studio/apps/270a29ce-74d9-41cd-af20-66bbf3b6a559
+---
 
-## Run Locally
+## ✨ 主な機能
 
-**Prerequisites:**  Node.js
+- **シフト管理** — スタッフの出勤日・担当時間帯を日別に登録・管理
+- **部屋割当** — 清掃員を各客室に割り当て。担当状況を一覧で把握
+- **報酬集計** — 清掃実績・部屋単価に基づいた報酬を自動計算
+- **スタッフマスタ** — 従業員情報・単価設定をまとめて管理
+- **初期デモデータ** — ワンクリックでサンプルデータをリセット・復元
 
+## 🛠️ 技術スタック
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+| 分類 | 技術 |
+|------|------|
+| フロントエンド | React 19 / TypeScript |
+| スタイリング | Tailwind CSS 4 |
+| データ保存 | LocalStorage（サーバー不要） |
+| ビルド | Vite 6 |
+| デプロイ | GitHub Pages |
+
+## 🚀 ローカル実行
+
+```bash
+git clone https://github.com/tatagen/hotel-cleaning-shift.git
+cd hotel-cleaning-shift
+npm install
+npm run dev
+```
+
+> 環境変数・サーバー設定は不要です。
