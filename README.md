@@ -2,7 +2,7 @@
 
 ホテルの清掃業務に特化した、シフト管理・部屋割当・報酬集計をワンストップで行えるWebアプリです。
 
-🖥️ **[デモを見る](https://tatagen.github.io/hotel-cleaning-shift/)**
+🖥️ **[デモを見る](https://hotel-cleaning-shift-646.pages.dev/)**
 
 ---
 
@@ -22,7 +22,7 @@
 | スタイリング | Tailwind CSS 4 |
 | データ保存 | LocalStorage（サーバー不要） |
 | ビルド | Vite 6 |
-| デプロイ | GitHub Pages |
+| デプロイ | Cloudflare Pages |
 
 ## 🚀 ローカル実行
 
@@ -32,5 +32,3 @@ cd hotel-cleaning-shift
 npm install
 npm run dev
 ```
-
-> 環境変数・サーバー設定は不要です。
